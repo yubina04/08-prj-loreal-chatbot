@@ -1,40 +1,32 @@
-// Copy this code into your Cloudflare Worker script
+// Cloudflare Worker for L'Oréal Chatbot (gpt-4o)
+// Secure your OpenAI API key in Cloudflare dashboard under "Variables and Secrets" as OPENAI_API_KEY
 
 export default {
   async fetch(request, env) {
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Content-Type': 'application/json'
-    };
+    // Parse incoming request body (expects JSON with 'messages' array)
+    const reqBody = await request.json();
 
-    // Handle CORS preflight requests
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
-    }
-
-    const apiKey = env.OPENAI_API_KEY; // Make sure to name your secret OPENAI_API_KEY in the Cloudflare Workers dashboard
-    const apiUrl = 'https://api.openai.com/v1/chat/completions';
-    const userInput = await request.json();
-
-    const requestBody = {
-      model: 'gpt-4o',
-      messages: userInput.messages,
-      max_completion_tokens: 300,
-    };
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
+    // Prepare OpenAI API request
+    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${env.OPENAI_API_KEY}` // Securely use secret
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: reqBody.messages
+      })
     });
 
-    const data = await response.json();
+    // Get response from OpenAI
+    const data = await openaiResponse.json();
 
-    return new Response(JSON.stringify(data), { headers: corsHeaders });
+    // Return only the assistant's reply
+    return new Response(JSON.stringify({
+      reply: data.choices[0].message.content
+    }), {
+      headers: { "Content-Type": "application/json" }
+    });
   }
 };
